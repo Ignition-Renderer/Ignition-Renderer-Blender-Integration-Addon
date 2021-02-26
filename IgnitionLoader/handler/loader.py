@@ -22,9 +22,9 @@ class IgnitionFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
             
             currentSettings = ""
             indents = 0
-            ignitJson = {"materials":[], "meshes":[]}
-            currentObjFile = ""
-
+            ignitJson = {"materials":[], "meshes":[], "lights":[]}
+            newItemIndexLIGHTS = 0
+            newItemIndexMESH = 0
             def checkBegin(stringToCheck, check):
                 return stringToCheck.startswith("\t"*indents + check)
             for line in ignition.read().splitlines():
@@ -35,6 +35,11 @@ class IgnitionFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 
                 if line == "}":
                     indents -= 1
+                    if currentSettings == "mesh":
+                        newItemIndexMESH += 1
+                    elif currentSettings == "light":
+                        newItemIndexLIGHTS += 1
+
                     currentSettings = ""
                     continue
 
@@ -46,15 +51,12 @@ class IgnitionFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                 if indents == 0:
                     currentSettings = line
                     continue
-                
-                if checkBegin(line, "file"):
-                    currentObjFile = line.split()[1]
 
                 if currentSettings != "":
                     
                     for vals in line.split()[1:]:
                         itemVal = [f for f in vals if f in "0 1 2 3 4 5 6 7 8 9".split()]
-                        if not any([currentSettings.startswith("material"), (currentSettings == "mesh")]):
+                        if not any([currentSettings.startswith("material"), (currentSettings == "mesh"), (currentSettings == "light")]):
                             if currentSettings not in ignitJson.keys():
                                 ignitJson[currentSettings] = {}
                             if len(line.split()[1:]) == 1: # only one value
@@ -74,28 +76,24 @@ class IgnitionFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                         else:
                             inMatList = False
                             index = 0
-                            listType = "materials" if currentSettings.startswith("material") else "meshes"
+                            listType = "materials" if currentSettings.startswith("material") else "lights" if currentSettings == "light" else "meshes"
                             for checkIfInMatList in range(len(ignitJson[listType])):
                                 if listType == "materials":
                                     if ignitJson["materials"][checkIfInMatList]["name"] == currentSettings.split()[1]:
                                         inMatList = True
                                         index = checkIfInMatList
                                         break
-                                elif listType == "meshes":
-                                    if line.split()[0] == "file":
-                                        break
-                                    else:
-                                        if ignitJson["meshes"][checkIfInMatList]["file"] == currentObjFile:
-                                            inMatList = True
-                                            index = checkIfInMatList
-                                            break
-                                        
+                            
+                            if listType == "meshes":
+                                if len(ignitJson["meshes"]) == newItemIndexMESH:
+                                    ignitJson["meshes"].append({})
+                            elif listType == "lights":
+                                if len(ignitJson["lights"]) == newItemIndexLIGHTS:
+                                    ignitJson["lights"].append({})
                             
                             if not inMatList:
                                 if listType == "materials":
                                     ignitJson["materials"].append({"name":currentSettings.split()[1]})
-                                elif listType == "meshes":
-                                    ignitJson["meshes"].append({"file":currentObjFile})
 
                             index = len(ignitJson[listType])-1
                             if len(line.split()[1:]) == 1: # only one value
@@ -132,14 +130,15 @@ class IgnitionFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 
         scene.use_nodes = True
 
-        envText = None
-        if not "Environment Texture" in scene.world.node_tree.nodes.keys():
-            scene.world.node_tree.nodes.new("ShaderNodeTexEnvironment")
         
-        envText = scene.world.node_tree.nodes["Environment Texture"]
-        
-        envText.image = bpy.data.images.load(path+"\\"+ignitJson["Renderer"]["envMap"])
-        scene.world.node_tree.links.new(envText.outputs[0], scene.world.node_tree.nodes["Background"].inputs[0])
+        if ignitJson["Renderer"].get("envMap") is not None:
+            envText = None
+            if not "Environment Texture" in scene.world.node_tree.nodes.keys():
+                scene.world.node_tree.nodes.new("ShaderNodeTexEnvironment")
+            
+            envText = scene.world.node_tree.nodes["Environment Texture"]
+            envText.image = bpy.data.images.load(path+"\\"+ignitJson["Renderer"]["envMap"])
+            scene.world.node_tree.links.new(envText.outputs[0], scene.world.node_tree.nodes["Background"].inputs[0])
 
         scene.world.node_tree.nodes["Background"].inputs[1].default_value = ignitJson["Renderer"]["hdrMultiplier"]
 
