@@ -125,7 +125,7 @@ class IgnitionFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                                     break
 
         # debugging
-        # json.dump(ignitJson, open(r"C:\Users\rapha\Desktop\ignition_beta_win32\ex.json", 'w'))
+        # json.dump(ignitJson, open(r"C:\Users\MYUSER\Desktop\ignition_beta_win32\ex.json", 'w'))
         
                 
         # json -> blender
