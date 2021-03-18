@@ -1,10 +1,9 @@
-import bpy
+import bpy, os
 from bpy_extras.io_utils import ExportHelper
 from bpy.props import (
     FloatProperty
 )
 from pathlib import Path
-
 
 
 class IgnitionFileWriter(bpy.types.Operator, ExportHelper):
@@ -13,19 +12,13 @@ class IgnitionFileWriter(bpy.types.Operator, ExportHelper):
     bl_label = "Save as Ignition File"
     bl_options = {"REGISTER"}
 
-    scaleFactor: FloatProperty(
-        name="Scale Factor",
-        description="The amount to scale all values",
-        default=1.0,
-        min=1,
-        options={}, # disable the animatable option.
-        
-    )
     filename_ext = ".ignition"
 
     filepath = "" # remove undefined variable error
     def execute(self, context):
         
+        folder = '\\'.join(self.filepath.split("\\")[:-1])
+        ignitionSavedFileName = self.filepath.split("\\")[-1].split(".")[0]
         blendJson = {"materials":[], "lights":[], "meshes":[]}
         
         # RENDERER SETTINGS
@@ -36,8 +29,20 @@ class IgnitionFileWriter(bpy.types.Operator, ExportHelper):
 
         for link in bpy.data.worlds[0].node_tree.links:
             if link.from_node.type == "TEX_ENVIRONMENT":
-                print(Path.absolute(link.from_node.image.filepath))
+                # copy HDRI
+                with open(link.from_node.image.filepath_from_user(), 'rb') as copyBytes:
+                    newLoc = f"{folder}\\{ignitionSavedFileName}_assets\\HDRI.{link.from_node.image.filepath.split('.')[-1]}"
+                    currentHDRIBytes = copyBytes.read()
+                    if not os.path.exists(newLoc):
+                        os.mkdir('\\'.join(newLoc.split("\\")[:-1]))
+                    open(newLoc, 'wb').write(currentHDRIBytes)
+                blendJson["Renderer"]["envMap"] = f"./{ignitionSavedFileName}_assets\\HDRI.{link.from_node.image.filepath.split('.')[-1]}"
+                break
 
-        print(self.filepath)
+                
+                
+                
+
+
         return {"FINISHED"}
 

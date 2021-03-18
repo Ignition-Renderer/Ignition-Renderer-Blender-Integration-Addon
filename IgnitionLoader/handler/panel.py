@@ -21,7 +21,7 @@ class FileHandlerPanel(Panel):
     bl_region_type = "UI"
     bl_category = "Ignition"
     bl_label = "File Handler"
-    bl_idname = "ignition.file_handle_panel"
+    bl_idname = "ignition.fileHandlePanel"
 
 
     def draw(self, context):
@@ -34,7 +34,7 @@ class NodeHandler(Panel):
     bl_region_type = "UI"
     bl_category = "Ignition"
     bl_label = "Node Handler"
-    bl_idname = "ignition.node_handle_panel"
+    bl_idname = "ignition.nodeHandlePanel"
 
 
     def draw(self, context):
