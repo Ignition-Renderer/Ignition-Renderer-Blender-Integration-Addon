@@ -125,7 +125,7 @@ class IgnitionFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                     continue
                 if val not in grp.inputs.keys():
                     continue
-                if val in ["extinction"]:
+                if val in ["extinction","albedo"]:
                     grp.inputs[val].default_value = mat[val] + [1]
                 else:
                     grp.inputs[val].default_value = mat[val]
@@ -140,12 +140,13 @@ class IgnitionFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                 
                 if "scale" in mesh.keys():
                     selected.scale = mesh["scale"]
-                if selected.data.materials:
-                    # assign to 1st material slot
-                    selected.data.materials[0] = bpy.data.materials[mesh["material"]]
-                else:
-                    # no slots
-                    selected.data.materials.append(bpy.data.materials[mesh["material"]])
+                if "material" in mesh.keys():
+                    if selected.data.materials:
+                        # assign to 1st material slot
+                        selected.data.materials[0] = bpy.data.materials[mesh["material"]]
+                    else:
+                        # no slots
+                        selected.data.materials.append(bpy.data.materials[mesh["material"]])
             
         # for obj in bpy.data.objects:
         #     obj.scale = (0.01, 0.01, 0.01)
