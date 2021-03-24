@@ -30,7 +30,7 @@ class FileHandlerPanel(Panel):
         layout.operator(writer.IgnitionFileWriter.bl_idname)
 
 class NodeHandler(Panel):
-    bl_space_type = "VIEW_3D"
+    bl_space_type = "NODE_EDITOR"
     bl_region_type = "UI"
     bl_category = "Ignition"
     bl_label = "Node Handler"
