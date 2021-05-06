@@ -1,6 +1,5 @@
 import bpy, os, math
-from .handler import loader, writer
-from .handler import panel
+from .handler import loader, writer, panel
 
 bl_info = {
     "name": "Ignition Loader",
@@ -10,9 +9,9 @@ bl_info = {
 
 # commented lines below are due to the fact that they were for TESTING purposes. If you want to mess around with them go ahead lol
 classes = [
-    loader.IgnitionFileLoader,
-    writer.IgnitionFileWriter,
-    panel.IgnitionDefaultNode,
+    loader.LavaFrameFileLoader,
+    writer.LavaFrameFileWriter,
+    panel.LavaFrameDefaultNode,
     panel.FileHandlerPanel,
     panel.NodeHandler,
 ]

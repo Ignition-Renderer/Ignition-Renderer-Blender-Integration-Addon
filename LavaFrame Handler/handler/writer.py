@@ -1,20 +1,20 @@
-import bpy, os, json, random
+import bpy, os, math, random
 from bpy_extras.io_utils import ExportHelper
 
 
-class IgnitionFileWriter(bpy.types.Operator, ExportHelper):
-    """Will write the current blend file to a .ignition file"""
-    bl_idname = "ignition.writer"
-    bl_label = "Save as Ignition File"
+class LavaFrameFileWriter(bpy.types.Operator, ExportHelper):
+    """Will write the current blend file to a .LavaFrame file"""
+    bl_idname = "LavaFrame.writer"
+    bl_label = "Save as LavaFrame File"
     bl_options = {"REGISTER"}
 
-    filename_ext = ".ignition"
+    filename_ext = ".LavaFrame"
 
     filepath = "" # remove undefined variable error
     def execute(self, context):
         
         folder = '\\'.join(self.filepath.split("\\")[:-1])
-        ignitionSavedFileName = self.filepath.split("\\")[-1].split(".")[0]
+        LavaFrameSavedFileName = self.filepath.split("\\")[-1].split(".")[0]
         blendJson = {"materials":[], "lights":[], "meshes":[]}
         
         # RENDERER SETTINGS
@@ -27,12 +27,12 @@ class IgnitionFileWriter(bpy.types.Operator, ExportHelper):
             if link.from_node.type == "TEX_ENVIRONMENT":
                 # copy HDRI
                 with open(link.from_node.image.filepath_from_user(), 'rb') as copyBytes:
-                    newLoc = f"{folder}\\{ignitionSavedFileName}_assets\\HDRI.{link.from_node.image.filepath.split('.')[-1]}"
+                    newLoc = f"{folder}\\{LavaFrameSavedFileName}_assets\\HDRI.{link.from_node.image.filepath.split('.')[-1]}"
                     currentHDRIBytes = copyBytes.read()
                     if not os.path.exists(newLoc):
                         os.mkdir('\\'.join(newLoc.split("\\")[:-1]))
                     open(newLoc, 'wb').write(currentHDRIBytes)
-                blendJson["Renderer"]["envMap"] = f"./{ignitionSavedFileName}_assets\\HDRI.{link.from_node.image.filepath.split('.')[-1]}"
+                blendJson["Renderer"]["envMap"] = f".\\{LavaFrameSavedFileName}_assets\\HDRI.{link.from_node.image.filepath.split('.')[-1]}"
 
         for node in bpy.data.worlds[0].node_tree.nodes:
             if node.type == "BACKGROUND":
@@ -41,7 +41,7 @@ class IgnitionFileWriter(bpy.types.Operator, ExportHelper):
         # CAMERA SETTINGS
         currentCamera = bpy.data.cameras[bpy.data.scenes[0].camera.name]
         blendJson["Camera"] = {}
-        blendJson["Camera"]["fov"] = currentCamera.angle
+        blendJson["Camera"]["fov"] = (currentCamera.angle*180)/math.pi
         blendJson["Camera"]["pos"] = [bpy.data.scenes[0].camera.location[0],
                                      -bpy.data.scenes[0].camera.location[2],
                                       bpy.data.scenes[0].camera.location[1]]
@@ -78,7 +78,9 @@ class IgnitionFileWriter(bpy.types.Operator, ExportHelper):
         bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
 
         # catJAM IT WORKS
-        blendJson["Camera"]["lookAt"] = bpy.data.objects[objName].location
+        blendJson["Camera"]["lookAt"] = [bpy.data.objects[objName].location[0],
+                                        -bpy.data.objects[objName].location[2],
+                                         bpy.data.objects[objName].location[1]]
 
         bpy.ops.object.delete()
 
@@ -88,36 +90,31 @@ class IgnitionFileWriter(bpy.types.Operator, ExportHelper):
 
 
         # MATERIALS
-        for mat in bpy.data.materials:
-            mat:bpy.types.Material
-            if not mat.use_nodes:
-                continue
-            
-            for link in mat.node_tree.links:
-                link:bpy.types.NodeLink 
-                if link.to_node.type == "OUTPUT_MATERIAL":
-                    if link.from_node.type == "GROUP":
-                        print(link.from_node.label)
-            
-            
+        # I literally have no clue how I'll do materials.
+        # I'm trying to figure out a way to take the blender
+        # node tree and transform it to GLSL. If that doesn't
+        # work then I'll have to force the default LavaFrame
+        # node.
+
             
 
-        # JSON -> IGNITION
-        ignitionFile = ""
+        # JSON -> LAVAFRAME
+        LavaFrameFile = ""
         for key in blendJson.keys():
             if type(blendJson[key]) == list:
                 continue
-            ignitionFile += f'{key}\n{{\n'
+            LavaFrameFile += f'{key}\n{{\n'
             for values in blendJson[key]:
                 if type(blendJson[key][values]) == list:
-                    ignitionFile += f"\t{values} "
+                    LavaFrameFile += f"\t{values} "
                     for c in blendJson[key][values]:
-                        ignitionFile += f"{c} "
-                    ignitionFile += "\n"
+                        LavaFrameFile += f"{c} "
+                    LavaFrameFile += "\n"
                     continue
-                ignitionFile += f"\t{values} {blendJson[key][values]}\n"
-            ignitionFile += "}"
+                LavaFrameFile += f"\t{values} {blendJson[key][values]}\n"
+            LavaFrameFile += "}\n"
 
-        open(self.filepath, 'w').write(ignitionFile)
+        
+        open(self.filepath, 'w').write(LavaFrameFile)
 
         return {"FINISHED"}

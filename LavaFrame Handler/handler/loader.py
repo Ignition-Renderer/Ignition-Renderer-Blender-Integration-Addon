@@ -1,18 +1,18 @@
 import bpy, bpy_extras, os, math, json
 from . import exceptions, ignitionToJson
 
-class IgnitionFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
-    """Takes care of loading in the .ignition file into your blender project."""
-    bl_idname = "ignition.loader"
-    bl_label = "Open Ignition File"
+class LavaFrameFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
+    """Takes care of loading in the .LavaFrame file into your blender project."""
+    bl_idname = "LavaFrame.loader"
+    bl_label = "Open LavaFrame File"
     bl_options = {'REGISTER', "UNDO"} # removing all objects is a destructive action! Ability to undo is nice
 
-    filter_glob: bpy.props.StringProperty(default="*.ignition", options={"HIDDEN"})
+    filter_glob: bpy.props.StringProperty(default="*.LavaFrame", options={"HIDDEN"})
 
     filepath = "" # removing undefined var error
 
     def execute(self, context):
-        bpy.context.scene["IGNITION_FILEPATH"] = self.filepath
+        bpy.context.scene["LavaFrame_FILEPATH"] = self.filepath
         # clear all objects
         for obj in bpy.context.scene.objects:
             mesh = bpy.data.objects[obj.name]
@@ -21,14 +21,14 @@ class IgnitionFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         bpy.context.scene.render.engine = "CYCLES"
         filename, extension = os.path.splitext(self.filepath)
         path = '\\'.join(self.filepath.split("\\")[:-1])
-        if extension != ".ignition":
-            raise exceptions.NotAnIgnitionFile("This specified file was not a .ignition file")
+        if extension != ".LavaFrame":
+            raise exceptions.NotAnLavaFrameFile("This specified file was not a .LavaFrame file")
         
         ignitJson = ignitionToJson.IgnitionToJson(filename+extension)
-        bpy.context.scene["IGNITION_JSONDATA"] = json.dumps(ignitJson)
+        bpy.context.scene["LavaFrame_JSONDATA"] = json.dumps(ignitJson)
 
         # debugging
-        # json.dump(ignitJson, open(r"C:\Users\MYUSER\Desktop\ignition_beta_win32\ex.json", 'w'))
+        # json.dump(ignitJson, open(r"C:\Users\MYUSER\Desktop\LavaFrame_beta_win32\ex.json", 'w'))
         
                 
         # json -> blender
@@ -90,10 +90,10 @@ class IgnitionFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 
         ## MATERIALS
 
-        if "IgnitionDefault" not in bpy.data.node_groups.keys():
-            ignitionNode() # create new ignition Node
+        if "LavaFrameDefault" not in bpy.data.node_groups.keys():
+            LavaFrameNode() # create new LavaFrame Node
         else:
-            ignitionNode(bpy.data.node_groups["IgnitionDefault"]) # overwrite exisitng one in case some users are funny and decide to temper with it
+            LavaFrameNode(bpy.data.node_groups["LavaFrameDefault"]) # overwrite exisitng one in case some users are funny and decide to temper with it
 
         for mat in ignitJson["materials"]:
             if mat["name"] in bpy.data.materials:
@@ -107,7 +107,7 @@ class IgnitionFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
             matOut = matnode.nodes.new("ShaderNodeOutputMaterial")
 
             grp = matnode.nodes.new("ShaderNodeGroup")
-            grp.node_tree = bpy.data.node_groups['IgnitionDefault']
+            grp.node_tree = bpy.data.node_groups['LavaFrameDefault']
             grp.location = (-200, 0)
 
             material.node_tree.links.new(grp.outputs[0], matOut.inputs[0])
@@ -219,9 +219,9 @@ class IgnitionFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 # this is garbage please do not use this please please please fix this oh god please no 
 # this is the worst code i've ever written I couldn't think of a way to automate this 
 # please do not use this in your code please I swear fix it
-def ignitionNode(group:bpy.types.NodeTree=None):
+def LavaFrameNode(group:bpy.types.NodeTree=None):
     if group is None:
-        group = bpy.data.node_groups.new("IgnitionDefault", "ShaderNodeTree")
+        group = bpy.data.node_groups.new("LavaFrameDefault", "ShaderNodeTree")
     else:
         group.nodes.clear()
         group.inputs.clear()
@@ -247,7 +247,7 @@ def ignitionNode(group:bpy.types.NodeTree=None):
     group.inputs.new("NodeSocketFloatFactor",   "transmission")
     group.inputs.new("NodeSocketFloat",         "ior")
     group.inputs.new("NodeSocketColor",         "extinction")                       
-    group.inputs.new("NodeSocketColor",         "metalicRoughnessTexture")#-------TODO
+    group.inputs.new("NodeSocketColor",         "metallicRoughness")
     group.inputs.new("NodeSocketColor",         "normalTexture")
     
     group.outputs.new("NodeSocketShader", "BSDF")
@@ -263,7 +263,7 @@ def ignitionNode(group:bpy.types.NodeTree=None):
     group.inputs["albedo"].default_value = [1, 1, 1, 1]
 
     group.inputs["albedoTexture"].hide_value = True
-    group.inputs["metalicRoughnessTexture"].hide_value = True
+    group.inputs["metallicRoughness"].hide_value = True
     group.inputs["normalTexture"].hide_value = True
 
 
@@ -292,5 +292,7 @@ def ignitionNode(group:bpy.types.NodeTree=None):
     group.links.new(nodeIn.outputs["transmission"], bsdf.inputs["Transmission"])
     group.links.new(nodeIn.outputs["ior"], bsdf.inputs["IOR"])
     group.links.new(nodeIn.outputs["normalTexture"], bsdf.inputs["Normal"])
+    group.links.new(nodeIn.outputs["metallicRoughness"], bsdf.inputs["Roughness"])
+
 
 
