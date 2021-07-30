@@ -1,13 +1,20 @@
-import bpy, bpy_extras, os, math, json
+import os
+import bpy
+import math
+import json
+import bmesh
+import pathlib
+import bpy_extras
+
 from . import exceptions, ignitionToJson
 
 class LavaFrameFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
-    """Takes care of loading in the .LavaFrame file into your blender project."""
-    bl_idname = "LavaFrame.loader"
+    """Takes care of foading in the .LavaFrame file into your blender project."""
+    bl_idname = "lavaframe.loader"
     bl_label = "Open LavaFrame File"
     bl_options = {'REGISTER', "UNDO"} # removing all objects is a destructive action! Ability to undo is nice
 
-    filter_glob: bpy.props.StringProperty(default="*.LavaFrame", options={"HIDDEN"})
+    filter_glob: bpy.props.StringProperty(default="*.lavaframe;*.ignition;*.lf;*.scene;*.lavaframescene;*.lfs", options={"HIDDEN"})
 
     filepath = "" # removing undefined var error
 
@@ -21,14 +28,14 @@ class LavaFrameFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         bpy.context.scene.render.engine = "CYCLES"
         filename, extension = os.path.splitext(self.filepath)
         path = '\\'.join(self.filepath.split("\\")[:-1])
-        if extension != ".LavaFrame":
+        if extension.lower() not in ".lavaframe .ignition .lf .scene .lfs .lavaframescene":
             raise exceptions.NotAnLavaFrameFile("This specified file was not a .LavaFrame file")
         
         ignitJson = ignitionToJson.IgnitionToJson(filename+extension)
         bpy.context.scene["LavaFrame_JSONDATA"] = json.dumps(ignitJson)
 
         # debugging
-        # json.dump(ignitJson, open(r"C:\Users\MYUSER\Desktop\LavaFrame_beta_win32\ex.json", 'w'))
+        print(json.dumps(ignitJson, indent=5))
         
                 
         # json -> blender
@@ -46,20 +53,23 @@ class LavaFrameFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         scene.use_nodes = True
 
         
-        if ignitJson["Renderer"].get("envMap") is not None:
+        if ignitJson["Renderer"].get("envMap"):
             envText = None
             if not "Environment Texture" in scene.world.node_tree.nodes.keys():
                 scene.world.node_tree.nodes.new("ShaderNodeTexEnvironment")
             
             envText = scene.world.node_tree.nodes["Environment Texture"]
-            envText.image = bpy.data.images.load(path+"\\"+ignitJson["Renderer"]["envMap"])
-            scene.world.node_tree.links.new(envText.outputs[0], scene.world.node_tree.nodes["Background"].inputs[0])
+            fullpath = path + "\\" + ignitJson["Renderer"]["envMap"].replace("/", '\\')
+            if os.path.exists(fullpath):
+                envText.image = bpy.data.images.load(str(fullpath))
+                scene.world.node_tree.links.new(envText.outputs[0], scene.world.node_tree.nodes["Background"].inputs[0])
+            
         else:
             if "Environment Texture" in scene.world.node_tree.nodes.keys():
                 scene.world.node_tree.nodes.remove(scene.world.node_tree.nodes["Environment Texture"])
             scene.world.node_tree.nodes["Background"].inputs[0].default_value = [0, 0, 0, 1]
 
-        if ignitJson["Renderer"].get("hdrMultiplier") is not None:
+        if ignitJson["Renderer"].get("hdrMultiplier"):
             scene.world.node_tree.nodes["Background"].inputs[1].default_value = ignitJson["Renderer"]["hdrMultiplier"]
 
         ## CAMERA SETTINGS
@@ -125,7 +135,7 @@ class LavaFrameFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                     continue
                 if val not in grp.inputs.keys():
                     continue
-                if val in ["extinction","albedo"]:
+                if val in ["extinction", "albedo", "color", "emission"]: # color is deprecated but I support old files
                     grp.inputs[val].default_value = mat[val] + [1]
                 else:
                     grp.inputs[val].default_value = mat[val]
@@ -153,6 +163,11 @@ class LavaFrameFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 
         ## LIGHTS
 
+        if "LavaFrameLight" not in bpy.data.node_groups.keys():
+            LavaFrameLightQuadNode()
+        else:
+            LavaFrameLightQuadNode(bpy.data.node_groups["LavaFrameLight"])
+
         for light in ignitJson["lights"]:
             if light["type"] == "Sphere":
                 bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=5)
@@ -176,41 +191,52 @@ class LavaFrameFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                 emission.inputs[0].default_value = col
                 emission.inputs[1].default_value = colStrength
                 bpy.context.selected_objects[0].data.materials.append(lightMat)
+
+
             elif light["type"] == "Quad":
                 lightv1 = light["v1"]
                 lightv2 = light["v2"]
-                bpy.ops.mesh.primitive_plane_add(size=1)
+                verts = [
+                    (lightv1[0], -lightv1[2], lightv1[1]), # a
+                    (lightv2[0], -lightv2[2], lightv1[1]), # b
+                    (lightv2[0], -lightv2[2], lightv2[1]), # c
+                    (lightv1[0], -lightv1[2], lightv2[1])  # d
+                ]
 
-                selectedPlane = bpy.context.selected_objects[0]
-                selectedPlane.scale[0] = abs(lightv1[0] - lightv2[0])
-                selectedPlane.scale[1] = abs(lightv1[2] - lightv2[2])
+                mesh = bpy.data.meshes.new("light")
+                obj = bpy.data.objects.new("lightObj", mesh)
+                scene = bpy.context.scene
+                bpy.context.collection.objects.link(obj)
+                # bpy.context.scene.objects.active = obj
+                bpy.context.selectable_objects.clear()
+                obj.select_set(True)
 
-                selectedPlane.location = (
-                    (lightv1[0]+lightv2[0])/2,
-                    -(lightv1[2]+lightv2[2])/2,
-                    light["position"][1]
-                )
+                mesh.from_pydata(verts, [], [(0, 1, 2, 3)])
+                bm = bmesh.new()
+                bm.from_mesh(mesh)
+                bm.to_mesh(mesh)
+                bm.free()
+
+                newLightMat = bpy.data.materials.new("LF.QuadLight")
+                newLightMat.use_nodes = True
+                newLightMat.node_tree.nodes.clear()
+                matOut = newLightMat.node_tree.nodes.new("ShaderNodeOutputMaterial")
+
+                grp = newLightMat.node_tree.nodes.new("ShaderNodeGroup")
+                grp.node_tree = bpy.data.node_groups["LavaFrameLight"]
+
+                grp.inputs["R"].default_value = light["emission"][0]
+                grp.inputs["G"].default_value = light["emission"][1]
+                grp.inputs["B"].default_value = light["emission"][2]
+
+                newLightMat.node_tree.links.new(grp.outputs[0], matOut.inputs[0])
+
+                if mesh.materials:
+                    mesh.materials[0] = newLightMat
+                else:
+                    mesh.materials.append(newLightMat)
+
                 
-                lightMat = bpy.data.materials.new("lightMat")
-                lightMat.use_nodes = True
-                lightMat.node_tree.nodes.clear()
-                matOut = lightMat.node_tree.nodes.new("ShaderNodeOutputMaterial")
-                emission = lightMat.node_tree.nodes.new("ShaderNodeEmission")
-                emission.location = (-200, 0)
-                lightMat.node_tree.links.new(emission.outputs[0], matOut.inputs[0])
-
-                col = (
-                    light["emission"][0]/max(light["emission"]),
-                    light["emission"][1]/max(light["emission"]),
-                    light["emission"][2]/max(light["emission"])
-                )
-                col = bpy_extras.node_shader_utils.rgb_to_rgba(col)
-                colStrength = max(light["emission"])
-
-                emission.inputs[0].default_value = col
-                emission.inputs[1].default_value = colStrength
-
-                selectedPlane.data.materials.append(lightMat)
 
 
 
@@ -247,7 +273,7 @@ def LavaFrameNode(group:bpy.types.NodeTree=None):
     group.inputs.new("NodeSocketFloatFactor",   "transmission")
     group.inputs.new("NodeSocketFloat",         "ior")
     group.inputs.new("NodeSocketColor",         "extinction")                       
-    group.inputs.new("NodeSocketColor",         "metallicRoughness")
+    group.inputs.new("NodeSocketColor",         "metallicRoughness") # TODO implement metallicRoughness
     group.inputs.new("NodeSocketColor",         "normalTexture")
     
     group.outputs.new("NodeSocketShader", "BSDF")
@@ -271,15 +297,21 @@ def LavaFrameNode(group:bpy.types.NodeTree=None):
     mixRgb = group.nodes.new("ShaderNodeMixRGB")
     mixRgb.location = (-260, -360)
 
+    # mixRgbRough = group.nodes.new("ShaderNodeMixRGB")
+    # mixRgbRough.location = (-260, -370)
+
     group.links.new(nodeOut.inputs[0], bsdf.outputs[0])
 
     group.links.new(bsdf.inputs[0], mixRgb.outputs[0])
     group.links.new(nodeIn.outputs["albedo"], mixRgb.inputs[1])
     group.links.new(nodeIn.outputs["extinction"], mixRgb.inputs[2])
     group.links.new(nodeIn.outputs["transmission"], mixRgb.inputs[0])
-    
+    # group.links.new(mixRgbRough.outputs[0], bsdf.inputs["Roughness"])
+
     group.links.new(nodeIn.outputs["emission"], bsdf.inputs["Emission"])
     group.links.new(nodeIn.outputs["metallic"], bsdf.inputs["Metallic"])
+    # group.links.new(nodeIn.outputs["metallic"], mixRgbRough.inputs["Fac"])
+    # group.links.new(nodeIn.outputs["metallicRoughness"], mixRgbRough.inputs["Color2"])
     group.links.new(nodeIn.outputs["roughness"], bsdf.inputs["Roughness"])
     group.links.new(nodeIn.outputs["specular"], bsdf.inputs["Specular"])
     group.links.new(nodeIn.outputs["specularTint"], bsdf.inputs["Specular Tint"])
@@ -292,7 +324,61 @@ def LavaFrameNode(group:bpy.types.NodeTree=None):
     group.links.new(nodeIn.outputs["transmission"], bsdf.inputs["Transmission"])
     group.links.new(nodeIn.outputs["ior"], bsdf.inputs["IOR"])
     group.links.new(nodeIn.outputs["normalTexture"], bsdf.inputs["Normal"])
-    group.links.new(nodeIn.outputs["metallicRoughness"], bsdf.inputs["Roughness"])
 
 
+def LavaFrameLightQuadNode(group:bpy.types.NodeTree=None):
+    if group is None:
+        group = bpy.data.node_groups.new("LavaFrameLightQuad", "ShaderNodeTree")
+    else:
+        group.nodes.clear()
+        group.inputs.clear()
+        group.outputs.clear()
+    
+    nodeIn = group.nodes.new("NodeGroupInput")
+    nodeIn.location = (-500, 0)
+    nodeOut = group.nodes.new('NodeGroupOutput')
+    nodeOut.location = (350, 0)
+
+    group.inputs.new("NodeSocketFloatFactor", "R")
+    group.inputs.new("NodeSocketFloatFactor", "G")
+    group.inputs.new("NodeSocketFloatFactor", "B")
+
+    group.outputs.new("NodeSocketShader", "BSDF")
+
+    combineRgb = group.nodes.new("ShaderNodeCombineRGB")
+    emission = group.nodes.new("ShaderNodeEmission")
+
+    group.links.new(nodeIn.outputs["R"], combineRgb.inputs["R"])
+    group.links.new(nodeIn.outputs["G"], combineRgb.inputs["G"])
+    group.links.new(nodeIn.outputs["B"], combineRgb.inputs["B"])
+    
+    group.links.new(emission.outputs[0], nodeOut.inputs[0])
+
+def LavaFrameLightSphereNode(group:bpy.types.NodeTree=None):
+    if group is None:
+        group = bpy.data.node_groups.new("LavaFrameLightSphere", "ShaderNodeTree")
+    else:
+        group.nodes.clear()
+        group.inputs.clear()
+        group.outputs.clear()
+    
+    nodeIn = group.nodes.new("NodeGroupInput")
+    nodeIn.location = (-500, 0)
+    nodeOut = group.nodes.new('NodeGroupOutput')
+    nodeOut.location = (350, 0)
+
+    group.inputs.new("NodeSocketFloatFactor", "R")
+    group.inputs.new("NodeSocketFloatFactor", "G")
+    group.inputs.new("NodeSocketFloatFactor", "B")
+
+    group.outputs.new("NodeSocketShader", "BSDF")
+
+    combineRgb = group.nodes.new("ShaderNodeCombineRGB")
+    emission = group.nodes.new("ShaderNodeEmission")
+
+    group.links.new(nodeIn.outputs["R"], combineRgb.inputs["R"])
+    group.links.new(nodeIn.outputs["G"], combineRgb.inputs["G"])
+    group.links.new(nodeIn.outputs["B"], combineRgb.inputs["B"])
+    
+    group.links.new(emission.outputs[0], nodeOut.inputs[0])
 

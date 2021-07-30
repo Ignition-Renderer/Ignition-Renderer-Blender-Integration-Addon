@@ -7,7 +7,7 @@ from . import loader, writer
 
 class LavaFrameDefaultNode(Operator):
     """Create the default inition node"""
-    bl_idname = "LavaFrame.node"
+    bl_idname = "lavaframe.node"
     bl_label = "Create Default LavaFrame Node"
     bl_options = {'REGISTER'}
 
@@ -21,7 +21,7 @@ class FileHandlerPanel(Panel):
     bl_region_type = "UI"
     bl_category = "LavaFrame"
     bl_label = "File Handler"
-    bl_idname = "LavaFrame.fileHandlePanel"
+    bl_idname = "lavaframe.fileHandlePanel"
 
 
     def draw(self, context):
@@ -34,7 +34,7 @@ class NodeHandler(Panel):
     bl_region_type = "UI"
     bl_category = "LavaFrame"
     bl_label = "Node Handler"
-    bl_idname = "LavaFrame.nodeHandlePanel"
+    bl_idname = "lavaframe.nodeHandlePanel"
 
 
     def draw(self, context):

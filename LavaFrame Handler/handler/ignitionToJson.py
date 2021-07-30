@@ -11,7 +11,7 @@ def IgnitionToJson(filepath):
         for line in ignition.read().splitlines():
             lineItem += 1
 
-            print(f"line {lineItem}: {line}\ncurrentSettings:{currentSettings}\nnewItemIndexLIGHTS:{newItemIndexLIGHTS}\nnewItemIndexMESH:{newItemIndexMESH}\nindents:{indents}")
+            # print(f"line {lineItem}: {line}\ncurrentSettings:{currentSettings}\nnewItemIndexLIGHTS:{newItemIndexLIGHTS}\nnewItemIndexMESH:{newItemIndexMESH}\nindents:{indents}")
             # Json conversion
             
             # lazy space character remover lol

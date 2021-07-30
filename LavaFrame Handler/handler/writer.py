@@ -4,7 +4,7 @@ from bpy_extras.io_utils import ExportHelper
 
 class LavaFrameFileWriter(bpy.types.Operator, ExportHelper):
     """Will write the current blend file to a .LavaFrame file"""
-    bl_idname = "LavaFrame.writer"
+    bl_idname = "lavaframe.writer"
     bl_label = "Save as LavaFrame File"
     bl_options = {"REGISTER"}
 
@@ -27,12 +27,12 @@ class LavaFrameFileWriter(bpy.types.Operator, ExportHelper):
             if link.from_node.type == "TEX_ENVIRONMENT":
                 # copy HDRI
                 with open(link.from_node.image.filepath_from_user(), 'rb') as copyBytes:
-                    newLoc = f"{folder}\\{LavaFrameSavedFileName}_assets\\HDRI.{link.from_node.image.filepath.split('.')[-1]}"
+                    newLoc = f"{folder}\\{''.join(LavaFrameSavedFileName.split())}_assets\\HDRI.{link.from_node.image.filepath.split('.')[-1]}"
                     currentHDRIBytes = copyBytes.read()
                     if not os.path.exists(newLoc):
                         os.mkdir('\\'.join(newLoc.split("\\")[:-1]))
                     open(newLoc, 'wb').write(currentHDRIBytes)
-                blendJson["Renderer"]["envMap"] = f".\\{LavaFrameSavedFileName}_assets\\HDRI.{link.from_node.image.filepath.split('.')[-1]}"
+                blendJson["Renderer"]["envMap"] = f".\\{''.join(LavaFrameSavedFileName.split())}_assets\\HDRI.{link.from_node.image.filepath.split('.')[-1]}"
 
         for node in bpy.data.worlds[0].node_tree.nodes:
             if node.type == "BACKGROUND":
@@ -95,6 +95,14 @@ class LavaFrameFileWriter(bpy.types.Operator, ExportHelper):
         # node tree and transform it to GLSL. If that doesn't
         # work then I'll have to force the default LavaFrame
         # node.
+
+        # hello me from two months ago, congrats, you couldn't
+        # figure it out. So I guess it's time to force the
+        # default node.
+
+        for mat in bpy.data.materials:
+            mat:bpy.types.Material
+            print(mat.node_tree.nodes["Group"])
 
             
 

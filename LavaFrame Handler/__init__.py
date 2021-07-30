@@ -2,7 +2,7 @@ import bpy, os, math
 from .handler import loader, writer, panel
 
 bl_info = {
-    "name": "Ignition Loader",
+    "name": "Lavaframe Loader",
     "blender":(2, 80, 0),
     "category": "Import-Export",
 }
