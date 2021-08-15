@@ -52,7 +52,9 @@ class LavaFrameFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 
         scene.use_nodes = True
 
-        
+        if ignitJson['Renderer'].get('hdriMap'):
+            ignitJson['Renderer']['envMap'] = ignitJson['Renderer'].pop('hdriMap')
+            
         if ignitJson["Renderer"].get("envMap"):
             envText = None
             if not "Environment Texture" in scene.world.node_tree.nodes.keys():
@@ -163,33 +165,45 @@ class LavaFrameFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
 
         ## LIGHTS
 
-        if "LavaFrameLight" not in bpy.data.node_groups.keys():
+        if "LavaFrameLightQuad" not in bpy.data.node_groups.keys():
             LavaFrameLightQuadNode()
         else:
-            LavaFrameLightQuadNode(bpy.data.node_groups["LavaFrameLight"])
+            LavaFrameLightQuadNode(bpy.data.node_groups["LavaFrameLightQuad"])
+        
+        if "LavaFrameLightSphere" not in bpy.data.node_groups.keys():
+            LavaFrameLightSphereNode()
+        else:
+            LavaFrameLightSphereNode(bpy.data.node_groups["LavaFrameLightSphere"])
 
         for light in ignitJson["lights"]:
             if light["type"] == "Sphere":
                 bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=5)
                 bpy.context.selected_objects[0].location = (light["position"][0], -light["position"][2], light["position"][1])
                 bpy.context.selected_objects[0].scale = [light["radius"]]*3
-                lightMat = bpy.data.materials.new("lightMat")
+
+                lightMat = bpy.data.materials.new("LF.SphereLight")
                 lightMat.use_nodes = True
                 lightMat.node_tree.nodes.clear()
+                
                 matOut = lightMat.node_tree.nodes.new("ShaderNodeOutputMaterial")
-                emission = lightMat.node_tree.nodes.new("ShaderNodeEmission")
-                emission.location = (-200, 0)
+                grp = lightMat.node_tree.nodes.new("ShaderNodeGroup")
+                grp.node_tree = bpy.data.node_groups["LavaFrameLightSphere"]
+
+                grp.location = (-200, 0)
                 col = (
                     light["emission"][0]/max(light["emission"]),
                     light["emission"][1]/max(light["emission"]),
                     light["emission"][2]/max(light["emission"])
                 )
                 colStrength = max(light["emission"])
-                lightMat.node_tree.links.new(emission.outputs[0], matOut.inputs[0])
-                # col = colorsys.rgb_to_hsv(col[0], col[1], col[2])
-                col = bpy_extras.node_shader_utils.rgb_to_rgba(col)
-                emission.inputs[0].default_value = col
-                emission.inputs[1].default_value = colStrength
+
+                grp.inputs["R"].default_value = col[0]
+                grp.inputs["G"].default_value = col[1]
+                grp.inputs["B"].default_value = col[2]
+                grp.inputs['Strength'].default_value = colStrength
+
+                lightMat.node_tree.links.new(grp.outputs[0], matOut.inputs[0])
+
                 bpy.context.selected_objects[0].data.materials.append(lightMat)
 
 
@@ -198,9 +212,9 @@ class LavaFrameFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                 lightv2 = light["v2"]
                 verts = [
                     (lightv1[0], -lightv1[2], lightv1[1]), # a
-                    (lightv2[0], -lightv2[2], lightv1[1]), # b
+                    (lightv2[0], -lightv1[2], lightv1[1]), # b
                     (lightv2[0], -lightv2[2], lightv2[1]), # c
-                    (lightv1[0], -lightv1[2], lightv2[1])  # d
+                    (lightv1[0], -lightv2[2], lightv2[1])  # d
                 ]
 
                 mesh = bpy.data.meshes.new("light")
@@ -223,11 +237,19 @@ class LavaFrameFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                 matOut = newLightMat.node_tree.nodes.new("ShaderNodeOutputMaterial")
 
                 grp = newLightMat.node_tree.nodes.new("ShaderNodeGroup")
-                grp.node_tree = bpy.data.node_groups["LavaFrameLight"]
+                grp.node_tree = bpy.data.node_groups["LavaFrameLightQuad"]
 
-                grp.inputs["R"].default_value = light["emission"][0]
-                grp.inputs["G"].default_value = light["emission"][1]
-                grp.inputs["B"].default_value = light["emission"][2]
+                col = (
+                    light["emission"][0]/max(light["emission"]),
+                    light["emission"][1]/max(light["emission"]),
+                    light["emission"][2]/max(light["emission"])
+                )
+                colStrength = max(light["emission"])
+
+                grp.inputs["R"].default_value = col[0]
+                grp.inputs["G"].default_value = col[1]
+                grp.inputs["B"].default_value = col[2]
+                grp.inputs['Strength'].default_value = colStrength
 
                 newLightMat.node_tree.links.new(grp.outputs[0], matOut.inputs[0])
 
@@ -342,6 +364,8 @@ def LavaFrameLightQuadNode(group:bpy.types.NodeTree=None):
     group.inputs.new("NodeSocketFloatFactor", "R")
     group.inputs.new("NodeSocketFloatFactor", "G")
     group.inputs.new("NodeSocketFloatFactor", "B")
+    group.inputs.new("NodeSocketFloatFactor", "Strength")
+
 
     group.outputs.new("NodeSocketShader", "BSDF")
 
@@ -351,6 +375,8 @@ def LavaFrameLightQuadNode(group:bpy.types.NodeTree=None):
     group.links.new(nodeIn.outputs["R"], combineRgb.inputs["R"])
     group.links.new(nodeIn.outputs["G"], combineRgb.inputs["G"])
     group.links.new(nodeIn.outputs["B"], combineRgb.inputs["B"])
+    group.links.new(combineRgb.outputs[0], emission.inputs[0])
+    group.links.new(nodeIn.outputs['Strength'], emission.inputs['Strength'])
     
     group.links.new(emission.outputs[0], nodeOut.inputs[0])
 
@@ -370,6 +396,8 @@ def LavaFrameLightSphereNode(group:bpy.types.NodeTree=None):
     group.inputs.new("NodeSocketFloatFactor", "R")
     group.inputs.new("NodeSocketFloatFactor", "G")
     group.inputs.new("NodeSocketFloatFactor", "B")
+    group.inputs.new("NodeSocketFloatFactor", "Strength")
+
 
     group.outputs.new("NodeSocketShader", "BSDF")
 
@@ -379,6 +407,8 @@ def LavaFrameLightSphereNode(group:bpy.types.NodeTree=None):
     group.links.new(nodeIn.outputs["R"], combineRgb.inputs["R"])
     group.links.new(nodeIn.outputs["G"], combineRgb.inputs["G"])
     group.links.new(nodeIn.outputs["B"], combineRgb.inputs["B"])
+    group.links.new(combineRgb.outputs[0], emission.inputs[0])
+    group.links.new(nodeIn.outputs['Strength'], emission.inputs['Strength'])
     
     group.links.new(emission.outputs[0], nodeOut.inputs[0])
 
