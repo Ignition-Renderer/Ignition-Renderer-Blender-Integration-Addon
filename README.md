@@ -4,7 +4,12 @@ As of when I'm writing this, Ignition has no built-in method for editing and cre
 # DEV BRANCH
 This is the Dev branch, meaning that everything you see here may not be fully working. Integration is subject to crashing Blender, not working as expected, or missing features. You have been warned.
 ### Patch Notes
-7/30/21 12:53pm PST
+#### 9/8/21 9:52pm PST
+- Continued Work on scene exporter
+- Got basic material output working (non-color values should work if not 0)
+- Updated file writing algorithm
+- Removed useless debug
+#### 7/30/21 12:53pm PST
 - Started Fixing Quad Lights being incorrectly loaded in (incomplete fix)
 - Added two new nodes; `LavaFrameLightNodeSphere` and `LavaFrameLightNodeQuad`
 - Advanced work on exporter (meshes, lights, and materials are still not exported and is subject to crashing)
