@@ -102,25 +102,48 @@ class LavaFrameFileWriter(bpy.types.Operator, ExportHelper):
 
         for mat in bpy.data.materials:
             mat:bpy.types.Material
-            print(mat.node_tree.nodes[1])
+            if mat.node_tree:
+                for node in mat.node_tree.links:
+                    node:bpy.types.NodeLink
+                    
+                    if node.to_node.type == 'OUTPUT_MATERIAL' and node.from_node.type == "GROUP":
+                        if node.from_node.node_tree.name == "LavaFrameDefault":
+                            a:bpy.types.NodeGroup = node.from_node
+                            matJsonData = {
+                                "name":mat.name
+                            }
+                            for key in a.keys():
+                                if a[key].default_value != 0:
+                                    matJsonData[key] = a[key].default_value
+                            blendJson["materials"].append(matJsonData)
+            else:
+                print(f"{mat.name} has no node_tree property.")
 
             
 
         # JSON -> LAVAFRAME
         LavaFrameFile = ""
         for key in blendJson.keys():
-            if type(blendJson[key]) == list:
-                continue
-            LavaFrameFile += f'{key}\n{{\n'
-            for values in blendJson[key]:
-                if type(blendJson[key][values]) == list:
-                    LavaFrameFile += f"\t{values} "
-                    for c in blendJson[key][values]:
-                        LavaFrameFile += f"{c} "
-                    LavaFrameFile += "\n"
-                    continue
-                LavaFrameFile += f"\t{values} {blendJson[key][values]}\n"
-            LavaFrameFile += "}\n"
+
+            if type(blendJson[key]) == dict:
+                LavaFrameFile += f'{key}\n{{\n'
+                for val in blendJson[key].keys():
+                    if type(blendJson[key][val]) == list:
+                        LavaFrameFile += f"\t{val} {' '.join([str(x) for x in blendJson[key][val]])}\n"
+                    else:
+                        LavaFrameFile += f"\t{val} {blendJson[key][val]}\n"
+                LavaFrameFile += "}\n"
+            
+            elif type(blendJson[key]) == list: # lists are ALWAYS a list of dicts.
+                if key == "materials":
+                    for x in range(len(blendJson[key])):
+                        LavaFrameFile += f"material {blendJson[key][x]['name']}\n{{"
+
+                        for val in blendJson[key][x].keys():
+                            if val == 'name':
+                                continue
+                            LavaFrameFile += f"\t{val} {' '.join(blendJson[key][x][val])}\n"
+                        LavaFrameFile += "}\n"
 
         
         open(self.filepath, 'w').write(LavaFrameFile)

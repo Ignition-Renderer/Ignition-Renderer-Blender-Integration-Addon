@@ -35,7 +35,7 @@ class LavaFrameFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         bpy.context.scene["LavaFrame_JSONDATA"] = json.dumps(ignitJson)
 
         # debugging
-        print(json.dumps(ignitJson, indent=5))
+        # print(json.dumps(ignitJson, indent=5))
         
                 
         # json -> blender
