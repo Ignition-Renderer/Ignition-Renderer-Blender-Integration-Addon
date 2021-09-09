@@ -102,7 +102,7 @@ class LavaFrameFileWriter(bpy.types.Operator, ExportHelper):
 
         for mat in bpy.data.materials:
             mat:bpy.types.Material
-            print(mat.node_tree.nodes["Group"])
+            print(mat.node_tree.nodes[1])
 
             
 

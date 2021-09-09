@@ -14,6 +14,9 @@ class LavaFrameDefaultNode(Operator):
     def execute(self, context:bpy.context):
         
         loader.LavaFrameNode(None if "LavaFrameDefault" not in bpy.data.node_groups.keys() else bpy.data.node_groups["LavaFrameDefault"])
+        loader.LavaFrameLightQuadNode(None if "LavaFrameLightQuad" not in bpy.data.node_groups.keys() else bpy.data.node_groups["LavaFrameLightQuad"])
+        loader.LavaFrameLightSphereNode(None if "LavaFrameLightSphere" not in bpy.data.node_groups.keys() else bpy.data.node_groups["LavaFrameLightSphere"])
+
         
         return {"FINISHED"}
 class FileHandlerPanel(Panel):

@@ -61,7 +61,7 @@ class LavaFrameFileLoader(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
                 scene.world.node_tree.nodes.new("ShaderNodeTexEnvironment")
             
             envText = scene.world.node_tree.nodes["Environment Texture"]
-            fullpath = path + "\\" + ignitJson["Renderer"]["envMap"].replace("/", '\\')
+            fullpath = ignitJson["Renderer"]["envMap"]
             if os.path.exists(fullpath):
                 envText.image = bpy.data.images.load(str(fullpath))
                 scene.world.node_tree.links.new(envText.outputs[0], scene.world.node_tree.nodes["Background"].inputs[0])
