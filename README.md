@@ -2,20 +2,12 @@
 As of when I'm writing this, Ignition has no built-in method for editing and creating files. This means that you'd have to learn the [file structure](https://ignitionrenderer.com/docs/#scene-files) to make a scene. This is tedious and can take a while! So, there's gotta be a better method to do it. Well, this is exactly what this is. This is the Blender Integration for Ignition.
 
 # DEV BRANCH
-This is the Dev branch, meaning that everything you see here may not be fully working. Integration is subject to crashing Blender, not working as expected, or missing features. You have been warned.
-### Patch Notes
-#### 9/8/21 9:52pm PST
-- Continued Work on scene exporter
-- Got basic material output working (non-color values should work if not 0)
-- Updated file writing algorithm
-- Removed useless debug
-#### 7/30/21 12:53pm PST
-- Started Fixing Quad Lights being incorrectly loaded in (incomplete fix)
-- Added two new nodes; `LavaFrameLightNodeSphere` and `LavaFrameLightNodeQuad`
-- Advanced work on exporter (meshes, lights, and materials are still not exported and is subject to crashing)
-- Renamed most buttons from Ignition to LavaFrame
+This is the Dev branch, meaning that everything you see here may not be fully working. Integration is subject to crashing Blender, not working as expected, or missing features. You have been warned.\
+Consider checking out the [patchnotes.md](./patchnotes.md) to see what I've been working on.
 # Info
 The add-on is currently in closed beta. The only feature at the moment is simple file loading. If you'd like to contribute and help me speed things up, consider switching to the dev branch and doing some PR. Keep in mind that I am working on this when I can and not at all times.
+# Speed Comparisons
+If there is both Blender and LavaFrame, what is the true reason for you to switch to LavaFrame and not stay on the Blender renderer? In reality, LavaFrame has shown to be much faster than Blender when it comes to rendering images. Data has been tested on both Cycles-X and Cycles, and LavaFrame has shown to be \[x\]% faster than Cycles-X. \[insert graph image\]
 # FAQ
 Q: **When is it coming out?**\
 A: I don't know. I'm working on it when I can and when I want. I also have school that I need to take care of.\
