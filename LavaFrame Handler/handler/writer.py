@@ -1,6 +1,6 @@
+import shutil
 import bpy, os, math, random
 from bpy_extras.io_utils import ExportHelper
-
 
 class LavaFrameFileWriter(bpy.types.Operator, ExportHelper):
     """Will write the current blend file to a .LavaFrame file"""
@@ -12,10 +12,14 @@ class LavaFrameFileWriter(bpy.types.Operator, ExportHelper):
 
     filepath = "" # remove undefined variable error
     def execute(self, context):
-        
         folder = '\\'.join(self.filepath.split("\\")[:-1])
         LavaFrameSavedFileName = self.filepath.split("\\")[-1].split(".")[0]
         blendJson = {"materials":[], "lights":[], "meshes":[]}
+
+        asset_folder = f"{LavaFrameSavedFileName}_assets\\"
+        full_assets_path = f"{folder}\\{LavaFrameSavedFileName}_assets\\"
+        if not os.path.exists(f"{folder}\\{LavaFrameSavedFileName}_assets"):
+            os.mkdir(f"{folder}\\{LavaFrameSavedFileName}_assets")
         
         # RENDERER SETTINGS
         blendJson["Renderer"] = {}
@@ -112,9 +116,31 @@ class LavaFrameFileWriter(bpy.types.Operator, ExportHelper):
                             matJsonData = {
                                 "name":mat.name
                             }
-                            for key in a.keys():
-                                if a[key].default_value != 0:
-                                    matJsonData[key] = a[key].default_value
+                            for key in a.inputs:
+                                # a.inputs[key.name].default_value... what a mouthful
+                                inputValue = a.inputs[key.name].default_value
+                                print(f"{key.name}: {type(inputValue)}")
+                                if type(inputValue) == float:
+                                    if inputValue != 0:
+                                        matJsonData[key.name] = inputValue
+                                else:
+                                    if key.name not in ["albedoTexture", "metallicRoughness", "normalTexture"]:
+                                        col = [x for x in inputValue]
+                                        if sum(col) != 1 and col[-1] == 1: # all alphas default to 1, if the sum is 1 and the alpha is 1 then the color is unused
+                                            matJsonData[key.name] = col
+                                    else:
+                                        # this means that it is a TEXTURE input, so I have to check for an image node.
+                                        if a.inputs[key.name].is_linked: # check if it is linked
+                                            image_tex = [x.from_node for x in a.inputs[key.name].links if x.from_node.type == "TEX_IMAGE"]
+                                            if image_tex != []:
+                                                image_tex = image_tex[0]
+                                                if image_tex.image:
+                                                    img_name:str = image_tex.image.filepath.split("\\")[-1]
+                                                    no_space_name = img_name.replace(' ', '_')
+                                                    shutil.copyfile(os.path.abspath(image_tex.image.filepath.replace('//', '\\')), full_assets_path)
+                                                    os.rename(f"{full_assets_path}\\{img_name}", f"{full_assets_path}\\{no_space_name}")
+                                                    matJsonData[key.name] = f"{full_assets_path}\\{no_space_name}"
+
                             blendJson["materials"].append(matJsonData)
             else:
                 print(f"{mat.name} has no node_tree property.")
@@ -137,12 +163,15 @@ class LavaFrameFileWriter(bpy.types.Operator, ExportHelper):
             elif type(blendJson[key]) == list: # lists are ALWAYS a list of dicts.
                 if key == "materials":
                     for x in range(len(blendJson[key])):
-                        LavaFrameFile += f"material {blendJson[key][x]['name']}\n{{"
+                        LavaFrameFile += f"material {blendJson[key][x]['name']}\n{{\n"
 
                         for val in blendJson[key][x].keys():
                             if val == 'name':
                                 continue
-                            LavaFrameFile += f"\t{val} {' '.join(blendJson[key][x][val])}\n"
+                            if type(blendJson[key][x][val]) == list:
+                                LavaFrameFile += f"\t{val} {' '.join([str(x) for x in blendJson[key][x][val]])}\n"
+                            else:
+                                LavaFrameFile += f"\t{val} {blendJson[key][x][val]}\n"
                         LavaFrameFile += "}\n"
 
         
